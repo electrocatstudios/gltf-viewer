@@ -13,11 +13,13 @@ fn main() {
         .add_system(rotate_block)
         .add_system(mouse_button_events)
         .add_system(mouse_motion)
+        .add_system(touch_events)
         .insert_resource(
             InteractionObject{
                 mousedown:false,
                 movement_x:0.0,
-                movement_y:0.0
+                movement_y:0.0,
+                prev_touch: Vec2::new(0.0,0.0)
             }
         )
         .run();
@@ -33,7 +35,8 @@ pub struct ViewerObject {
 pub struct InteractionObject {
     mousedown: bool,
     movement_x: f32,
-    movement_y: f32
+    movement_y: f32,
+    prev_touch: Vec2
 }
 
 pub fn setup(
@@ -72,14 +75,23 @@ fn touch_events(
             TouchPhase::Started => {
                 // println!("Touch {} started at: {:?}", ev.id, ev.position);
                 interact.mousedown = true;
+                interact.prev_touch.x = ev.position.x;
+                interact.prev_touch.y = ev.position.y;
             }
             TouchPhase::Moved => {
                 // println!("Touch {} moved to: {:?}", ev.id, ev.position);
-
+                if interact.mousedown {
+                    interact.movement_x = (ev.position.x - interact.prev_touch.x) * TOUCH_ADJUST;
+                    interact.movement_y = (ev.position.y - interact.prev_touch.y) * TOUCH_ADJUST;
+                    interact.prev_touch.x = ev.position.x;
+                    interact.prev_touch.y = ev.position.y;
+                }
             }
             TouchPhase::Ended => {
                 // println!("Touch {} ended at: {:?}", ev.id, ev.position);
                 interact.mousedown = false;
+                interact.prev_touch.x = 0.0;
+                interact.prev_touch.y = 0.0;
             }
             TouchPhase::Cancelled => {
                 // println!("Touch {} cancelled at: {:?}", ev.id, ev.position);
@@ -127,6 +139,7 @@ fn mouse_motion(
 
 const ROTATION_SPEED: f32 = 0.5;
 const MOVEMENT_ADJUST: f32 = 0.01;
+const TOUCH_ADJUST: f32 = 0.01;
 
 // Rotate a block
 pub fn rotate_block(
