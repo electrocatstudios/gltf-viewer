@@ -1,12 +1,25 @@
 use bevy::{
     prelude::*,
 };
+use bevy::input::mouse::MouseButtonInput;
+use bevy::input::mouse::MouseMotion;
+use bevy::input::ButtonState;
 
 fn main() {
     App::new()
+        .init_resource::<InteractionObject>()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(rotate_block)
+        .add_system(mouse_button_events)
+        .add_system(mouse_motion)
+        .insert_resource(
+            InteractionObject{
+                mousedown:false,
+                movement_x:0.0,
+                movement_y:0.0
+            }
+        )
         .run();
 }
 
@@ -14,6 +27,13 @@ fn main() {
 pub struct ViewerObject {
     rot: f32,
     tilt: f32
+}
+
+#[derive(Resource, Default)]
+pub struct InteractionObject {
+    mousedown: bool,
+    movement_x: f32,
+    movement_y: f32
 }
 
 pub fn setup(
@@ -33,7 +53,7 @@ pub fn setup(
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-
+    // Ambient Light
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 0.8,
@@ -41,15 +61,86 @@ pub fn setup(
 }
 
 
+fn touch_events(
+    mut touch_evr: EventReader<TouchInput>,
+    mut interact: ResMut<InteractionObject>
+) {
+    use bevy::input::touch::TouchPhase;
+    for ev in touch_evr.iter() {
+        // in real apps you probably want to store and track touch ids somewhere
+        match ev.phase {
+            TouchPhase::Started => {
+                // println!("Touch {} started at: {:?}", ev.id, ev.position);
+                interact.mousedown = true;
+            }
+            TouchPhase::Moved => {
+                // println!("Touch {} moved to: {:?}", ev.id, ev.position);
+
+            }
+            TouchPhase::Ended => {
+                // println!("Touch {} ended at: {:?}", ev.id, ev.position);
+                interact.mousedown = false;
+            }
+            TouchPhase::Cancelled => {
+                // println!("Touch {} cancelled at: {:?}", ev.id, ev.position);
+                interact.mousedown = false;
+            }
+        }
+    }
+}
+
+fn mouse_button_events(
+    mut mousebtn_evr: EventReader<MouseButtonInput>,
+    mut interact: ResMut<InteractionObject>
+) {
+
+
+    for ev in mousebtn_evr.iter() {
+        match ev.state {
+            ButtonState::Pressed => {
+                if ev.button == MouseButton::Left{
+                    interact.mousedown = true;
+                }
+            }
+            ButtonState::Released => {
+                if ev.button == MouseButton::Left{
+                    interact.mousedown = false;
+                }
+            }
+        }
+    }
+}
+
+fn mouse_motion(
+    mut motion_evr: EventReader<MouseMotion>,
+    mut interact: ResMut<InteractionObject>
+) {
+    for ev in motion_evr.iter() {
+        if interact.mousedown {
+            interact.movement_x = ev.delta.x * MOVEMENT_ADJUST; 
+            interact.movement_y = ev.delta.y * MOVEMENT_ADJUST;
+        }
+    
+        // println!("Mouse moved: X: {} px, Y: {} px", ev.delta.x, ev.delta.y);
+    }
+}
+
 const ROTATION_SPEED: f32 = 0.5;
+const MOVEMENT_ADJUST: f32 = 0.01;
 
 // Rotate a block
 pub fn rotate_block(
     time: Res<Time>,
     keys: Res<Input<KeyCode>>,
     mut objects: Query<(&mut Transform, &mut ViewerObject)>,
+    mut interact: ResMut<InteractionObject>
 ){
     for (mut transform, mut object) in &mut objects {
+        object.rot += interact.movement_x;
+        interact.movement_x = 0.0;
+        object.tilt += interact.movement_y;
+        interact.movement_y = 0.0;
+
         if keys.pressed(KeyCode::D) {
             object.rot += ROTATION_SPEED * time.delta_seconds();
         }
