@@ -4,8 +4,27 @@ use bevy::{
 use bevy::input::mouse::MouseButtonInput;
 use bevy::input::mouse::MouseMotion;
 use bevy::input::ButtonState;
+use std::path::Path;
+use std::env;
+
+#[derive(Resource)]
+pub struct Filename(String);
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        println!("Please pass in a filename to input");
+        return;
+    }
+
+    let filepath = &args[1];
+    let binding: String = "assets/gltf/".to_owned() + &filepath.to_string();
+    let path = Path::new(&binding);
+    if !path.exists() {
+        println!("File does not exist");
+        return;
+    }
+    
     App::new()
         .init_resource::<InteractionObject>()
         .add_plugins(DefaultPlugins)
@@ -21,6 +40,9 @@ fn main() {
                 movement_y:0.0,
                 prev_touch: Vec2::new(0.0,0.0)
             }
+        )
+        .insert_resource(
+            Filename(filepath.to_string())
         )
         .run();
 }
@@ -42,11 +64,12 @@ pub struct InteractionObject {
 pub fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    filename: Res<Filename>
 ){
     commands
         .spawn(SceneBundle {
             scene: asset_server.load(
-                "gltf/puck.gltf#Scene0",
+                "gltf/".to_owned() + &filename.0.to_string() + "#Scene0",
             ),
             ..default()
         }).insert(ViewerObject{rot: 0.0, tilt: 0.0});
